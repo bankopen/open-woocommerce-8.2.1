@@ -3,30 +3,48 @@
  * Plugin Name: Open Payment Gateway
  * Plugin URI: https://open.money/
  * Description: Open's Layer Payment Gateway integration for WooCommerce v4.x and higher
- * Version: 1.1.2
+ * Version: 1.2.0
  * Author: Openers
  * Author URI: https://open.money/
 */
 
 
-require_once 'layer_api.php';
+require_once 'include/layer_api.php';
 
 if ( ! defined( 'ABSPATH' ) )
 {
     exit;
 }
 
-//hook as WooComerce payment gateway
-add_filter( 'woocommerce_payment_gateways', 'layer_add_gateway_class' );
-function layer_add_gateway_class( $gateways ) {
-    $gateways[] = 'WC_OpenGateway';
-    return $gateways;
-}
+use Automattic\WooCommerce\Utilities\OrderUtil;
+use Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry;
+
+// Hook the custom function to the 'before_woocommerce_init' action
+add_action('before_woocommerce_init', function () {
+  if (class_exists('\Automattic\WooCommerce\Utilities\FeaturesUtil')) {
+    \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', __FILE__, true);
+  }
+});
 
 //init layer's gateway class
 add_action( 'plugins_loaded', 'layer_init_gateway_class' );
 
+add_action('woocommerce_blocks_loaded', 'layer_woocommerce_block_support');
 
+function layer_woocommerce_block_support()
+{
+  require_once __DIR__ . '/layer_checkout_block.php';
+  // registering the PHP class we have just included
+  add_action(
+    'woocommerce_blocks_payment_method_type_registration',
+    function (Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry $payment_method_registry) {
+      $payment_method_registry->register(new WC_Layer_Blocks);
+    }
+  );
+}
+
+
+/** currently not required
 register_activation_hook( __FILE__, 'layer_activation_check' );
 
 
@@ -84,7 +102,7 @@ function layer_activation_check(){
     }
 
     return false;
-}
+}*/
 
 
 function layer_init_gateway_class() {
@@ -92,16 +110,16 @@ function layer_init_gateway_class() {
 
     class WC_OpenGateway extends WC_Payment_Gateway {
 
-
+		protected $sandbox, $access_key, $secret_key, $redirect_page_id, $layer_params;
+		
         public function __construct() {
 
             $this->id = 'openpayment';
-            $this->icon = WP_PLUGIN_URL . "/" . plugin_basename(dirname(__FILE__)) . '/logo.png';
+            $this->icon = WP_PLUGIN_URL . "/" . plugin_basename(dirname(__FILE__)) . '/images/logo.png';
             $this->has_fields = false;
             $this->method_title = 'Open Payment Gateway (Layer)';
             $this->method_description = 'Layer Payment from Open';
-	          $this->layer_params = [];	
-
+	        $this->layer_params = [];	
 
             $this->init_form_fields();
 
@@ -115,9 +133,9 @@ function layer_init_gateway_class() {
 			$this->redirect_page_id = $this ->get_option('redirect_page_id');
 			
             add_action('woocommerce_api_'. strtolower( get_class( $this ) ), array($this, 'process_layer_response'));
-            add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
+            add_action('woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
             add_action('woocommerce_receipt_' . $this->id, array($this, 'process_payment_view'));
-            add_action( 'wp_enqueue_scripts', array( $this, 'payment_scripts' ) );
+            add_action('wp_enqueue_scripts', array( $this, 'payment_scripts' ) );
         }
 
 
@@ -223,7 +241,7 @@ function layer_init_gateway_class() {
                 'name'  => $order->get_formatted_billing_full_name(),
                 'email_id' => $order->get_billing_email(),
                 'contact_number' => $order->get_billing_phone(),
-		'mtx' =>   date("ymd").'-'.rand(1,10000), 
+				'mtx' =>   date("ymd").'-'.rand(1,10000), 
                 'udf'   => [
                     'woocommerce_order_id'  => $order->get_id(),
                     'woocommerce_order_key'  => $order->get_order_key(),
@@ -348,7 +366,7 @@ function layer_init_gateway_class() {
 
                     echo "<button class='float-right' id='LayerPayNow'>Pay Now</button>";
 
-					wp_register_script( 'layer_checkout_js', plugin_dir_url(__FILE__)."layer_checkout.js" );	        
+					wp_register_script( 'layer_checkout_js', plugin_dir_url(__FILE__)."include/layer_checkout.js" );	        
 					wp_localize_script( 'layer_checkout_js','layer_params',$this->layer_params );
             		wp_enqueue_script( 'layer_checkout_js',"","","",true);
 			
@@ -437,7 +455,7 @@ function layer_init_gateway_class() {
 
                             }
 
-                            $order->add_order_note( "Payment Data ". json_encode($payment_data));
+                            //$order->add_order_note( "Payment Data ". json_encode($payment_data));
 
 
                             switch ($payment_data['status']){
@@ -537,7 +555,15 @@ function layer_init_gateway_class() {
 		}
 
     }//class
+	
+	//hook as WooComerce payment gateway
+	add_filter( 'woocommerce_payment_gateways', 'layer_add_gateway_class' );
+	
+	function layer_add_gateway_class( $gateways ) {
+		$gateways[] = 'WC_OpenGateway';
+		return $gateways;
+	}
+
+} //init
 
 
-
-}

@@ -9,6 +9,8 @@ Class LayerApi{
 	const BASE_URL_SANDBOX = "https://sandbox-icp-api.bankopen.co/api";
     const BASE_URL_UAT = "https://icp-api.bankopen.co/api";
 
+	private $env, $access_key, $secret_key;
+
     public function __construct($env,$access_key,$secret_key){
 
         $this->env = $env;
@@ -99,14 +101,9 @@ Class LayerApi{
 
 
     function build_auth($body,$method){
-
-       
-        
-
         return [
             'Authorization'  =>  'Bearer '.$this->access_key.':'.$this->secret_key,
         ];
-
     }
 
 
@@ -168,7 +165,6 @@ Class LayerApi{
     function handle_http_response($response){
 
         $response = (array)$response;
-
 
         try {
 
