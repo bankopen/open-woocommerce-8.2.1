@@ -16,7 +16,7 @@ final class WC_Layer_Blocks extends AbstractPaymentMethodType
     wp_register_script(
       'layer-blocks-integration',
 	  
-      plugin_dir_url(__DIR__) . 'WooCommerce_Layer/layer_checkout_block.js',
+      plugin_dir_url(__FILE__) . 'layer_checkout_block.js',
       [
         'wc-blocks-registry',
         'wc-settings',
